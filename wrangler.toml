@@ -6,3 +6,8 @@ compatibility_date = "2026-10-01"
 directory = "./public"
 binding = "ASSETS"
 run_worker_first = ["/api/*", "/admin"]
+
+[[d1_databases]]
+binding = "DB"
+database_name = "klati-db"
+database_id = "94cc715d-581b-4c88-979e-3699fd8a1cec"
