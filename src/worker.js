@@ -63,7 +63,7 @@ h1{font-size:clamp(48px,8vw,100px);line-height:.95;margin:18px 0 25px;max-width:
 .cover{display:block;width:100%;max-height:620px;object-fit:cover;margin:0 0 45px;border:1px solid #292929}
 .body{max-width:820px;font-size:20px;line-height:1.75;color:#eee}
 .body p{margin:0 0 28px}
-.back{display:inline-block;margin-top:55px;padding:14px 22px;background:#d9ff00;color:#000;text-decoration:none;font-weight:700}
+.share-row{display:flex;gap:12px;align-items:center;flex-wrap:wrap;margin-top:55px}.share-btn{appearance:none;border:1px solid #3a3a3a;background:#151515;color:#fff;padding:14px 22px;font:700 14px "Space Grotesk",Arial,sans-serif;cursor:pointer;transition:.2s}.share-btn:hover{background:#d9ff00;color:#000;border-color:#d9ff00;transform:translateY(-1px)}.back{display:inline-block;padding:14px 22px;background:#d9ff00;color:#000;text-decoration:none;font-weight:700}.share-note{color:#888;font-size:13px}.modal{position:fixed;inset:0;background:#000b;display:none;align-items:center;justify-content:center;padding:20px;z-index:20}.modal.open{display:flex}.modal-box{width:min(460px,100%);background:#111;border:1px solid #333;padding:28px;box-shadow:0 20px 80px #000}.modal-title{font-size:24px;font-weight:700;margin-bottom:8px}.modal-sub{color:#999;font-size:14px;margin-bottom:22px}.share-options{display:grid;grid-template-columns:1fr 1fr;gap:10px}.share-option{display:block;padding:14px;background:#1b1b1b;border:1px solid #303030;color:#fff;text-decoration:none;font-weight:700;text-align:center;cursor:pointer}.share-option:hover{background:#d9ff00;color:#000;border-color:#d9ff00}.close-modal{margin-top:16px;width:100%;padding:12px;background:transparent;border:1px solid #333;color:#aaa;cursor:pointer}.close-modal:hover{color:#fff;border-color:#666}
 </style>
 </head>
 <body>
@@ -81,8 +81,79 @@ h1{font-size:clamp(48px,8vw,100px);line-height:.95;margin:18px 0 25px;max-width:
   ${excerpt ? `<div class="excerpt">${excerpt}</div>` : ""}
   ${cover}
   <article class="body">${body}</article>
-  <a class="back" href="/#posts">← НАЗАД КЪМ ПИСАНИЦИТЕ</a>
+  <div class="share-row">
+    <button class="share-btn" id="shareBtn" type="button">↗ СПОДЕЛИ</button>
+    <a class="back" href="/#posts">← НАЗАД КЪМ ПИСАНИЦИТЕ</a>
+  </div>
+  <div class="share-note">Хареса ти? Прати я на някого.</div>
 </main>
+<div class="modal" id="shareModal" aria-hidden="true">
+  <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="shareTitle">
+    <div class="modal-title" id="shareTitle">Сподели тази писаница</div>
+    <div class="modal-sub">Избери къде да я изпратиш.</div>
+    <div class="share-options">
+      <a class="share-option" target="_blank" rel="noopener" href="https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent('https://klati.me/p/' + post.slug)}">Facebook</a>
+      <a class="share-option" target="_blank" rel="noopener" href="https://www.facebook.com/dialog/send?link=${encodeURIComponent('https://klati.me/p/' + post.slug)}">Messenger</a>
+      <a class="share-option" target="_blank" rel="noopener" href="https://wa.me/?text=${encodeURIComponent(title + ' — https://klati.me/p/' + post.slug)}">WhatsApp</a>
+      <a class="share-option" target="_blank" rel="noopener" href="viber://forward?text=${encodeURIComponent(title + ' — https://klati.me/p/' + post.slug)}">Viber</a>
+      <button class="share-option" id="copyLink" type="button">🔗 Копирай линка</button>
+      <button class="share-option" id="nativeShare" type="button">📱 Сподели от телефона</button>
+    </div>
+    <button class="close-modal" id="closeShare" type="button">ЗАТВОРИ</button>
+  </div>
+</div>
+<script>
+(() => {
+  const shareUrl = 'https://klati.me/p/' + ${JSON.stringify(post.slug)};
+  const shareTitle = ${JSON.stringify(post.title)};
+  const modal = document.getElementById('shareModal');
+  const openBtn = document.getElementById('shareBtn');
+  const closeBtn = document.getElementById('closeShare');
+  const copyBtn = document.getElementById('copyLink');
+  const nativeBtn = document.getElementById('nativeShare');
+
+  openBtn.addEventListener('click', async () => {
+    if (navigator.share) {
+      try {
+        await navigator.share({title: shareTitle, text: shareTitle, url: shareUrl});
+        return;
+      } catch (e) {
+        if (e && e.name === 'AbortError') return;
+      }
+    }
+    modal.classList.add('open');
+    modal.setAttribute('aria-hidden', 'false');
+  });
+
+  closeBtn.addEventListener('click', () => {
+    modal.classList.remove('open');
+    modal.setAttribute('aria-hidden', 'true');
+  });
+
+  modal.addEventListener('click', (e) => {
+    if (e.target === modal) closeBtn.click();
+  });
+
+  copyBtn.addEventListener('click', async () => {
+    try {
+      await navigator.clipboard.writeText(shareUrl);
+      copyBtn.textContent = '✓ Линкът е копиран';
+      setTimeout(() => copyBtn.textContent = '🔗 Копирай линка', 1800);
+    } catch {
+      window.prompt('Копирай линка:', shareUrl);
+    }
+  });
+
+  nativeBtn.addEventListener('click', async () => {
+    if (!navigator.share) {
+      nativeBtn.textContent = 'Не е налично на това устройство';
+      setTimeout(() => nativeBtn.textContent = '📱 Сподели от телефона', 1800);
+      return;
+    }
+    try { await navigator.share({title: shareTitle, text: shareTitle, url: shareUrl}); } catch (e) {}
+  });
+})();
+</script>
 </body>
 </html>`;
 }
