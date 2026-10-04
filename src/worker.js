@@ -39,6 +39,9 @@ function renderPostPage(post) {
   const cover = post.cover_url
     ? `<img class="cover" src="${escapeHtml(post.cover_url)}" alt="${title}">`
     : "";
+  const shareUrl = `https://klati.me/p/${encodeURIComponent(post.slug)}`;
+  const shareImage = post.cover_url || "https://klati.me/klati-share.png";
+  const shareDescription = post.excerpt || "Писаници, шашкании и други опасни мисли.";
 
   return `<!doctype html>
 <html lang="bg">
@@ -46,6 +49,20 @@ function renderPostPage(post) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} — klati.me</title>
+<meta name="description" content="${escapeHtml(shareDescription)}">
+<meta property="og:type" content="article">
+<meta property="og:site_name" content="klati.me">
+<meta property="og:locale" content="bg_BG">
+<meta property="og:title" content="${title} — klati.me">
+<meta property="og:description" content="${escapeHtml(shareDescription)}">
+<meta property="og:url" content="${shareUrl}">
+<meta property="og:image" content="${escapeHtml(shareImage)}">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="${title} — klati.me">
+<meta name="twitter:description" content="${escapeHtml(shareDescription)}">
+<meta name="twitter:image" content="${escapeHtml(shareImage)}">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
