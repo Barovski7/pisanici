@@ -31,6 +31,73 @@ function formatBody(value = "") {
     .join("");
 }
 
+function absoluteUrl(path) {
+  return `https://klati.me${path.startsWith("/") ? path : "/" + path}`;
+}
+
+function safeJsonLd(value) {
+  return JSON.stringify(value).replace(/</g, "\\u003c");
+}
+
+function seoDescription(post) {
+  const raw = String(post.excerpt || post.body || "").replace(/\\s+/g, " ").trim();
+  return raw.slice(0, 160);
+}
+
+function renderHomepageSeo(htmlText) {
+  const tags = `
+<meta name="description" content="klati.me — писаници, шашкании и други опасни мисли. Авторски текстове, абсурд, самоирония и всичко, което не е трябвало да бъде написано.">
+<link rel="canonical" href="https://klati.me/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="klati.me">
+<meta property="og:title" content="klati.me — Писаници, шашкании и други опасни мисли">
+<meta property="og:description" content="Писаници, шашкании и други опасни мисли.">
+<meta property="og:url" content="https://klati.me/">
+<meta property="og:image" content="https://klati.me/klati-share.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="klati.me — Писаници, шашкании и други опасни мисли">
+<meta name="twitter:description" content="Писаници, шашкании и други опасни мисли.">
+<meta name="twitter:image" content="https://klati.me/klati-share.png">
+<script type="application/ld+json">${safeJsonLd({
+  "@context":"https://schema.org",
+  "@type":"WebSite",
+  "name":"klati.me",
+  "url":"https://klati.me/",
+  "inLanguage":"bg"
+})}</script>`;
+
+  if (/<meta[^>]+name=["']description["']/i.test(htmlText)) {
+    return htmlText.replace(/<head>/i, `<head>${tags}`);
+  }
+  return htmlText.replace(/<head>/i, `<head>${tags}`);
+}
+
+function renderRobots() {
+  return `User-agent: *\nAllow: /\nDisallow: /admin\nDisallow: /api/\n\nSitemap: https://klati.me/sitemap.xml\n`;
+}
+
+function renderSitemap(posts) {
+  const urls = [
+    {loc: "https://klati.me/", lastmod: null},
+    ...posts.map(p => ({
+      loc: absoluteUrl(`/p/${encodeURIComponent(p.slug)}`),
+      lastmod: p.updated_at || p.published_at || null
+    }))
+  ];
+
+  const body = urls.map(u => `
+  <url>
+    <loc>${escapeHtml(u.loc)}</loc>${u.lastmod ? `
+    <lastmod>${escapeHtml(new Date(u.lastmod).toISOString())}</lastmod>` : ""}
+  </url>`).join("");
+
+  return `<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">${body}
+</urlset>`;
+}
+
 function renderPostPage(post) {
   const title = escapeHtml(post.title);
   const category = escapeHtml(post.category || "ПИСАНИЦИ");
@@ -39,9 +106,6 @@ function renderPostPage(post) {
   const cover = post.cover_url
     ? `<img class="cover" src="${escapeHtml(post.cover_url)}" alt="${title}">`
     : "";
-  const shareUrl = `https://klati.me/p/${encodeURIComponent(post.slug)}`;
-  const shareImage = post.cover_url || "https://klati.me/klati-share.png";
-  const shareDescription = post.excerpt || "Писаници, шашкании и други опасни мисли.";
 
   return `<!doctype html>
 <html lang="bg">
@@ -49,20 +113,35 @@ function renderPostPage(post) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1">
 <title>${title} — klati.me</title>
-<meta name="description" content="${escapeHtml(shareDescription)}">
+<meta name="description" content="${escapeHtml(seoDescription(post))}">
+<meta name="robots" content="index,follow,max-image-preview:large">
+<link rel="canonical" href="${absoluteUrl(`/p/${encodeURIComponent(post.slug)}`)}">
 <meta property="og:type" content="article">
 <meta property="og:site_name" content="klati.me">
 <meta property="og:locale" content="bg_BG">
-<meta property="og:title" content="${title} — klati.me">
-<meta property="og:description" content="${escapeHtml(shareDescription)}">
-<meta property="og:url" content="${shareUrl}">
-<meta property="og:image" content="${escapeHtml(shareImage)}">
-<meta property="og:image:width" content="1200">
-<meta property="og:image:height" content="630">
+<meta property="og:title" content="${title}">
+<meta property="og:description" content="${escapeHtml(seoDescription(post))}">
+<meta property="og:url" content="${absoluteUrl(`/p/${encodeURIComponent(post.slug)}`)}">
+<meta property="og:image" content="${escapeHtml(post.cover_url || absoluteUrl('/klati-share.png'))}">
+<meta property="og:image:alt" content="${title}">
+<meta property="article:published_time" content="${escapeHtml(post.published_at || '')}">
 <meta name="twitter:card" content="summary_large_image">
-<meta name="twitter:title" content="${title} — klati.me">
-<meta name="twitter:description" content="${escapeHtml(shareDescription)}">
-<meta name="twitter:image" content="${escapeHtml(shareImage)}">
+<meta name="twitter:title" content="${title}">
+<meta name="twitter:description" content="${escapeHtml(seoDescription(post))}">
+<meta name="twitter:image" content="${escapeHtml(post.cover_url || absoluteUrl('/klati-share.png'))}">
+<script type="application/ld+json">${safeJsonLd({
+  "@context":"https://schema.org",
+  "@type":"BlogPosting",
+  "mainEntityOfPage":{"@type":"WebPage","@id":absoluteUrl(`/p/${encodeURIComponent(post.slug)}`)},
+  "headline":String(post.title || ""),
+  "description":seoDescription(post),
+  "image":[post.cover_url || absoluteUrl('/klati-share.png')],
+  "datePublished":post.published_at || undefined,
+  "dateModified":post.updated_at || post.published_at || undefined,
+  "author":{"@type":"Person","name":"Ивайло Баровски"},
+  "publisher":{"@type":"Organization","name":"klati.me","url":"https://klati.me/"},
+  "inLanguage":"bg"
+})}</script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
@@ -235,7 +314,7 @@ async function requireAuth(request, env) {
 
 async function publicPosts(env) {
   const {results} = await env.DB.prepare(
-    `SELECT id, slug, title, excerpt, body, cover_url, category, published_at
+    `SELECT id, slug, title, excerpt, body, cover_url, category, published_at, updated_at
      FROM posts WHERE status='published'
      ORDER BY published_at DESC, id DESC`
   ).all();
@@ -264,6 +343,21 @@ export default {
     const path = url.pathname;
 
     try {
+      if (path === "/robots.txt" && request.method === "GET") {
+        return new Response(renderRobots(), {
+          headers: {"content-type":"text/plain; charset=utf-8", "cache-control":"public, max-age=3600"}
+        });
+      }
+
+      if (path === "/sitemap.xml" && request.method === "GET") {
+        const {results} = await env.DB.prepare(
+          `SELECT slug, published_at, updated_at FROM posts WHERE status='published' ORDER BY published_at DESC, id DESC`
+        ).all();
+        return new Response(renderSitemap(results), {
+          headers: {"content-type":"application/xml; charset=utf-8", "cache-control":"public, max-age=3600"}
+        });
+      }
+
       if (path === "/api/posts" && request.method === "GET") {
         return json(await publicPosts(env));
       }
@@ -271,7 +365,7 @@ export default {
       if (path.startsWith("/api/posts/") && request.method === "GET") {
         const slug = decodeURIComponent(path.slice("/api/posts/".length));
         const post = await env.DB.prepare(
-          `SELECT id, slug, title, excerpt, body, cover_url, category, published_at
+          `SELECT id, slug, title, excerpt, body, cover_url, category, published_at, updated_at
            FROM posts WHERE slug=?1 AND status='published' LIMIT 1`
         ).bind(slug).first();
         return post ? json(post) : json({error:"Not found"},404);
@@ -281,7 +375,7 @@ export default {
       if (path.startsWith("/p/") && request.method === "GET") {
         const slug = decodeURIComponent(path.slice("/p/".length));
         const post = await env.DB.prepare(
-          `SELECT id, slug, title, excerpt, body, cover_url, category, published_at
+          `SELECT id, slug, title, excerpt, body, cover_url, category, published_at, updated_at
            FROM posts WHERE slug=?1 AND status='published' LIMIT 1`
         ).bind(slug).first();
 
@@ -358,9 +452,22 @@ export default {
 
       if (path === "/admin") {
         if (!(await requireAuth(request, env))) {
-          return html(await env.ASSETS.fetch(new Request(new URL("/admin-login.html",url))).then(r=>r.text()));
+          const loginHtml = await env.ASSETS.fetch(new Request(new URL("/admin-login.html",url))).then(r=>r.text());
+          return new Response(loginHtml.replace(/<head>/i, '<head><meta name="robots" content="noindex,nofollow,noarchive">'), {
+            headers: {"content-type":"text/html; charset=utf-8", "X-Robots-Tag":"noindex, nofollow, noarchive"}
+          });
         }
-        return env.ASSETS.fetch(new Request(new URL("/admin.html",url)));
+        const adminHtml = await env.ASSETS.fetch(new Request(new URL("/admin.html",url))).then(r=>r.text());
+        return new Response(adminHtml.replace(/<head>/i, '<head><meta name="robots" content="noindex,nofollow,noarchive">'), {
+          headers: {"content-type":"text/html; charset=utf-8", "X-Robots-Tag":"noindex, nofollow, noarchive"}
+        });
+      }
+
+      if (path === "/" && request.method === "GET") {
+        const indexHtml = await env.ASSETS.fetch(request).then(r => r.text());
+        return new Response(renderHomepageSeo(indexHtml), {
+          headers: {"content-type":"text/html; charset=utf-8", "cache-control":"public, max-age=300"}
+        });
       }
 
       return env.ASSETS.fetch(request);
