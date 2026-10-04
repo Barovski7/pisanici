@@ -15,6 +15,78 @@ function html(text, status = 200) {
   });
 }
 
+function escapeHtml(value = "") {
+  return String(value)
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#39;");
+}
+
+function formatBody(value = "") {
+  return escapeHtml(value)
+    .split(/\n{2,}/)
+    .map(p => `<p>${p.replace(/\n/g, "<br>")}</p>`)
+    .join("");
+}
+
+function renderPostPage(post) {
+  const title = escapeHtml(post.title);
+  const category = escapeHtml(post.category || "ПИСАНИЦИ");
+  const excerpt = escapeHtml(post.excerpt || "");
+  const body = formatBody(post.body || "");
+  const cover = post.cover_url
+    ? `<img class="cover" src="${escapeHtml(post.cover_url)}" alt="${title}">`
+    : "";
+
+  return `<!doctype html>
+<html lang="bg">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${title} — klati.me</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Permanent+Marker&family=Space+Grotesk:wght@400;500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+body{margin:0;background:#090909;color:#fff;font-family:"Space Grotesk",Arial,sans-serif}
+.nav{height:74px;border-bottom:1px solid #292929;display:flex;align-items:center;justify-content:space-between;padding:0 5%;position:sticky;top:0;background:#090909ee;backdrop-filter:blur(12px);z-index:5}
+.logo{font:34px "Permanent Marker";color:#fff;text-decoration:none;text-shadow:3px 3px #ff3567,-2px -2px #27d9ff}
+.nav a{color:#fff;text-decoration:none;margin-left:24px;font-weight:700}
+.wrap{max-width:1000px;margin:auto;padding:80px 24px 120px}
+.k{color:#d9ff00;letter-spacing:.2em;font-size:12px;font-weight:700}
+h1{font-size:clamp(48px,8vw,100px);line-height:.95;margin:18px 0 25px;max-width:950px}
+.meta{color:#999;font-size:14px;margin-bottom:40px}
+.excerpt{font-size:24px;line-height:1.45;color:#ddd;max-width:820px;border-left:4px solid #d9ff00;padding-left:20px;margin:0 0 45px}
+.cover{display:block;width:100%;max-height:620px;object-fit:cover;margin:0 0 45px;border:1px solid #292929}
+.body{max-width:820px;font-size:20px;line-height:1.75;color:#eee}
+.body p{margin:0 0 28px}
+.back{display:inline-block;margin-top:55px;padding:14px 22px;background:#d9ff00;color:#000;text-decoration:none;font-weight:700}
+</style>
+</head>
+<body>
+<header class="nav">
+  <a class="logo" href="/">klati.me</a>
+  <div>
+    <a href="/#posts">ПИСАНИЦИ</a>
+    <a href="/admin">ADMIN</a>
+  </div>
+</header>
+<main class="wrap">
+  <div class="k">${category}</div>
+  <h1>${title}</h1>
+  <div class="meta">${post.published_at ? new Date(post.published_at).toLocaleDateString("bg-BG") : ""}</div>
+  ${excerpt ? `<div class="excerpt">${excerpt}</div>` : ""}
+  ${cover}
+  <article class="body">${body}</article>
+  <a class="back" href="/#posts">← НАЗАД КЪМ ПИСАНИЦИТЕ</a>
+</main>
+</body>
+</html>`;
+}
+
 function b64url(bytes) {
   let s = "";
   for (const b of new Uint8Array(bytes)) s += String.fromCharCode(b);
@@ -115,6 +187,21 @@ export default {
            FROM posts WHERE slug=?1 AND status='published' LIMIT 1`
         ).bind(slug).first();
         return post ? json(post) : json({error:"Not found"},404);
+      }
+
+      // Public article page: /p/<slug>
+      if (path.startsWith("/p/") && request.method === "GET") {
+        const slug = decodeURIComponent(path.slice("/p/".length));
+        const post = await env.DB.prepare(
+          `SELECT id, slug, title, excerpt, body, cover_url, category, published_at
+           FROM posts WHERE slug=?1 AND status='published' LIMIT 1`
+        ).bind(slug).first();
+
+        if (!post) {
+          return html(`<!doctype html><html lang="bg"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Няма такава писаница — klati.me</title><style>body{margin:0;background:#090909;color:#fff;font-family:Arial,sans-serif;display:grid;place-items:center;min-height:100vh;text-align:center}a{display:inline-block;margin-top:20px;padding:14px 20px;background:#d9ff00;color:#000;text-decoration:none;font-weight:700}</style></head><body><div><h1>Тази писаница се е изпарила.</h1><a href="/#posts">← КЪМ ПИСАНИЦИТЕ</a></div></body></html>`, 404);
+        }
+
+        return html(renderPostPage(post));
       }
 
       if (path === "/api/admin/login" && request.method === "POST") {
