@@ -66,12 +66,29 @@ function renderHomepageSeo(htmlText) {
   "name":"klati.me",
   "url":"https://klati.me/",
   "inLanguage":"bg"
-})}</script>`;
+})}</script>
+<style>
+.klati-manifesto{position:relative;isolation:isolate;max-width:900px;margin:26px 0 38px;padding:clamp(22px,4vw,38px);background:linear-gradient(135deg,#121212 0%,#090909 72%);border:1px solid #343434;border-left:5px solid #ff3567;box-shadow:7px 7px 0 #27d9ff;color:#fff;overflow:hidden}
+.klati-manifesto:after{content:"KLATI.ME / МАНИФЕСТ";display:block;margin-top:20px;color:#d9ff00;font:700 11px/1.4 "Space Grotesk",Arial,sans-serif;letter-spacing:.2em}
+.klati-manifesto p{margin:0;font:700 clamp(22px,3.7vw,36px)/1.25 "Space Grotesk",Arial,sans-serif;letter-spacing:-.035em}
+.klati-manifesto p span{color:#d9ff00}
+@media(max-width:600px){.klati-manifesto{margin:22px 0 30px;padding:22px 18px;box-shadow:4px 4px 0 #27d9ff}.klati-manifesto p{font-size:clamp(21px,6vw,29px)}}
+</style>`;
 
-  if (/<meta[^>]+name=["']description["']/i.test(htmlText)) {
-    return htmlText.replace(/<head>/i, `<head>${tags}`);
-  }
-  return htmlText.replace(/<head>/i, `<head>${tags}`);
+  const withSeo = htmlText.replace(/<head>/i, `<head>${tags}`);
+  return injectHomepageMotto(withSeo);
+}
+
+function injectHomepageMotto(htmlText) {
+  if (htmlText.includes('class="klati-manifesto"')) return htmlText;
+  const opening = /<([a-z][\w:-]*)\b[^>]*\bid=["']posts["'][^>]*>/i.exec(htmlText);
+  if (!opening) return htmlText;
+  const start = opening.index + opening[0].length;
+  const tail = htmlText.slice(start);
+  const headingEnd = /<\/(h1|h2|h3)>/i.exec(tail);
+  const motto = `<aside class="klati-manifesto" aria-label="Манифест на klati.me"><p>Тук не пишем просто текстове. Тук превръщаме <span>битовата безизходица в литература</span>, а анцуга — в <span>национална идентичност!</span></p></aside>`;
+  const insertAt = headingEnd ? start + headingEnd.index + headingEnd[0].length : start;
+  return htmlText.slice(0, insertAt) + motto + htmlText.slice(insertAt);
 }
 
 function renderRobots() {
